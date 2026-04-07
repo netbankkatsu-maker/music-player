@@ -1,65 +1,129 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { Search } from 'lucide-react';
+import Link from 'next/link';
+import { TrendPlayer } from '@/components/TrendPlayer';
+import { usePlaylistStore } from '@/stores/playlistStore';
+import { usePlayerStore } from '@/stores/playerStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+
+export default function HomePage() {
+  const recentTracks = usePlaylistStore((s) => s.recentTracks);
+  const playlists = usePlaylistStore((s) => s.playlists);
+  const { playTrack } = usePlayerStore();
+  const theme = useSettingsStore((s) => s.theme);
+  const isDark = theme === 'dark';
+
+  const textColor = isDark ? '#E5E5E5' : '#111827';
+  const subText = isDark ? '#9CA3AF' : '#6B7280';
+
+  const userPlaylists = playlists.filter(
+    (p) => p.id !== 'favorites' && p.id !== 'history' && p.tracks.length > 0
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="pt-[env(safe-area-inset-top)]">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3">
+        <h1 className="text-xl font-bold" style={{ color: textColor }}>
+          Music Player
+        </h1>
+      </div>
+
+      {/* Search bar link */}
+      <Link href="/search" className="block px-4 mb-5">
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-2xl"
+          style={{
+            background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+          }}
+        >
+          <Search size={18} color={subText} />
+          <span className="text-sm" style={{ color: subText }}>
+            曲名、アーティストを検索
+          </span>
+        </div>
+      </Link>
+
+      {/* Trend Player */}
+      <TrendPlayer />
+
+      {/* Recent Tracks */}
+      {recentTracks.length > 0 && (
+        <section className="mb-6">
+          <div className="px-4 mb-3">
+            <h2 className="text-base font-bold" style={{ color: textColor }}>最近再生した曲</h2>
+          </div>
+          <div className="flex gap-3 overflow-x-auto px-4 pb-2">
+            {recentTracks.slice(0, 10).map((track) => (
+              <div
+                key={track.id}
+                className="flex-shrink-0 w-[140px] cursor-pointer active:scale-95 transition-transform"
+                onClick={() => playTrack(track, recentTracks)}
+              >
+                <div className="w-[140px] h-[140px] rounded-2xl overflow-hidden mb-2 shadow-lg">
+                  <img src={track.thumbnail} alt="" className="w-full h-full object-cover" />
+                </div>
+                <p className="text-xs font-medium truncate" style={{ color: textColor }}>
+                  {track.title}
+                </p>
+                <p className="text-[10px] truncate" style={{ color: subText }}>
+                  {track.artist}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* User Playlists */}
+      {userPlaylists.length > 0 && (
+        <section className="px-4 mb-6">
+          <h2 className="text-base font-bold mb-3" style={{ color: textColor }}>
+            あなたのプレイリスト
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            {userPlaylists.slice(0, 4).map((pl) => (
+              <Link key={pl.id} href={`/playlists/${pl.id}`}>
+                <div
+                  className="rounded-2xl p-3 active:scale-[0.98] transition-transform"
+                  style={{ background: isDark ? '#16213E' : '#F3F4F6' }}
+                >
+                  <div className="flex items-center gap-3">
+                    {pl.tracks[0] ? (
+                      <img
+                        src={pl.tracks[0].thumbnail}
+                        alt=""
+                        className="w-12 h-12 rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-12 h-12 rounded-xl"
+                        style={{ background: isDark ? '#1A1A2E' : '#E5E7EB' }}
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: textColor }}>
+                        {pl.name}
+                      </p>
+                      <p className="text-xs" style={{ color: subText }}>{pl.tracks.length}曲</p>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Empty state */}
+      {recentTracks.length === 0 && (
+        <div className="px-4 py-12 text-center">
+          <p className="text-sm" style={{ color: subText }}>
+            トレンドMIXを再生するか、検索して音楽を見つけましょう
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
     </div>
   );
 }
