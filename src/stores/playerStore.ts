@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { Track, RepeatMode } from '@/types';
 
 interface PlayerStore {
@@ -43,7 +44,7 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-export const usePlayerStore = create<PlayerStore>((set, get) => ({
+export const usePlayerStore = create<PlayerStore>()(persist((set, get) => ({
   currentTrack: null,
   queue: [],
   originalQueue: [],
@@ -182,4 +183,14 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
       currentTime: 0,
     });
   },
+}), {
+  name: 'music-player-player',
+  partialize: (state) => ({
+    currentTrack: state.currentTrack,
+    queue: state.queue,
+    originalQueue: state.originalQueue,
+    volume: state.volume,
+    repeatMode: state.repeatMode,
+    isShuffled: state.isShuffled,
+  }),
 }));
