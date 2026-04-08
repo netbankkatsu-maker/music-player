@@ -59,6 +59,7 @@ export function useYouTubePlayer() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isApiReady = useRef(false);
   const pendingVideoId = useRef<string | null>(null);
+  const isLoadingVideo = useRef(false);
 
   const {
     currentTrack,
@@ -186,11 +187,26 @@ export function useYouTubePlayer() {
             }
             nextTrack();
           } else if (event.data === window.YT.PlayerState.PLAYING) {
+            isLoadingVideo.current = false;
             const dur = event.target.getDuration();
             if (dur) setDuration(dur);
             startTimeUpdate();
+            // Sync store: ensure isPlaying is true when actually playing
+            if (!usePlayerStore.getState().isPlaying) {
+              usePlayerStore.getState().setIsPlaying(true);
+            }
           } else if (event.data === window.YT.PlayerState.PAUSED) {
+            isLoadingVideo.current = false;
             stopTimeUpdate();
+            // Sync store: if we expected to be playing but got paused (autoplay blocked)
+            // keep isPlaying in sync with reality
+            if (usePlayerStore.getState().isPlaying && !isLoadingVideo.current) {
+              // Don't auto-set to false during loading, only if user/browser paused
+              // Try to resume playback
+              try { event.target.playVideo(); } catch {}
+            }
+          } else if (event.data === window.YT.PlayerState.BUFFERING) {
+            isLoadingVideo.current = true;
           }
         },
         onError: (event) => {
@@ -259,7 +275,17 @@ export function useYouTubePlayer() {
     }
 
     if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
+      isLoadingVideo.current = true;
       playerRef.current.loadVideoById(currentTrack.id);
+      // Safety: if playback doesn't start within 3s, retry
+      const retryTimeout = setTimeout(() => {
+        if (isLoadingVideo.current && playerRef.current) {
+          try {
+            playerRef.current.playVideo();
+          } catch {}
+        }
+      }, 3000);
+      return () => clearTimeout(retryTimeout);
     } else {
       pendingVideoId.current = currentTrack.id;
       if (isApiReady.current) {
@@ -340,7 +366,7 @@ export function useYouTubePlayer() {
 
   // Handle play/pause
   useEffect(() => {
-    if (!playerRef.current) return;
+    if (!playerRef.current || isLoadingVideo.current) return;
     try {
       if (isPlaying) {
         playerRef.current.playVideo();
