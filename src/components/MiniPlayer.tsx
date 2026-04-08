@@ -1,13 +1,19 @@
 'use client';
 
-import { Play, Pause, SkipForward } from 'lucide-react';
+import { Play, Pause, SkipForward, X } from 'lucide-react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { motion } from 'framer-motion';
 
 export function MiniPlayer() {
-  const { currentTrack, isPlaying, togglePlay, nextTrack, setFullPlayerOpen, currentTime, duration } =
+  const { currentTrack, isPlaying, togglePlay, nextTrack, setFullPlayerOpen, setIsPlaying, currentTime, duration } =
     usePlayerStore();
+
+  const closeMiniPlayer = () => {
+    setIsPlaying(false);
+    usePlayerStore.getState().clearQueue();
+    usePlayerStore.setState({ currentTrack: null });
+  };
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
 
@@ -108,6 +114,15 @@ export function MiniPlayer() {
             className="p-2 rounded-full active:scale-90 transition-transform"
           >
             <SkipForward size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              closeMiniPlayer();
+            }}
+            className="p-1.5 rounded-full active:scale-90 transition-transform"
+          >
+            <X size={18} color={isDark ? '#9CA3AF' : '#6B7280'} />
           </button>
         </div>
       </div>
