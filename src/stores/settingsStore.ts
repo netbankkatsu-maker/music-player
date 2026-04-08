@@ -9,11 +9,15 @@ interface SettingsStore {
   quality: 'low' | 'medium' | 'high';
   hasCompletedOnboarding: boolean;
   favoriteGenres: string[];
+  crossfadeDuration: number; // 0 = off, 1-10 seconds
+  equalizerPreset: string; // 'flat' | 'bass' | 'vocal' | 'pop' | 'rock' | 'jazz'
 
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setQuality: (quality: 'low' | 'medium' | 'high') => void;
   completeOnboarding: (genres: string[]) => void;
+  setCrossfadeDuration: (duration: number) => void;
+  setEqualizerPreset: (preset: string) => void;
   resetSettings: () => void;
 }
 
@@ -24,6 +28,8 @@ export const useSettingsStore = create<SettingsStore>()(
       quality: 'medium',
       hasCompletedOnboarding: false,
       favoriteGenres: [],
+      crossfadeDuration: 0,
+      equalizerPreset: 'flat',
 
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set((state) => ({
@@ -34,11 +40,15 @@ export const useSettingsStore = create<SettingsStore>()(
         hasCompletedOnboarding: true,
         favoriteGenres: genres,
       }),
+      setCrossfadeDuration: (duration) => set({ crossfadeDuration: duration }),
+      setEqualizerPreset: (preset) => set({ equalizerPreset: preset }),
       resetSettings: () => set({
         theme: 'dark',
         quality: 'medium',
         hasCompletedOnboarding: false,
         favoriteGenres: [],
+        crossfadeDuration: 0,
+        equalizerPreset: 'flat',
       }),
     }),
     {

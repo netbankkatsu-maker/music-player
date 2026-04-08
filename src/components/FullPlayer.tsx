@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import {
   ChevronDown, Play, Pause, SkipBack, SkipForward,
-  Shuffle, Repeat, Repeat1, Heart, ListMusic, Timer, Volume2, MicVocal
+  Shuffle, Repeat, Repeat1, Heart, ListMusic, Timer, Volume2, MicVocal, Share2, Radio
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -21,7 +21,7 @@ export function FullPlayer() {
     currentTrack, isPlaying, togglePlay, nextTrack, prevTrack,
     currentTime, duration, repeatMode, toggleRepeat,
     isShuffled, toggleShuffle, isFullPlayerOpen, setFullPlayerOpen,
-    volume, setVolume,
+    volume, setVolume, isRadioMode, toggleRadioMode,
   } = usePlayerStore();
   const { toggleFavorite, isFavorite } = usePlaylistStore();
   const theme = useSettingsStore((s) => s.theme);
@@ -263,7 +263,29 @@ export function FullPlayer() {
               >
                 <Timer size={20} color={subText} />
               </button>
-              <div className="flex items-center gap-2 flex-1 mx-8">
+              <button
+                onClick={toggleRadioMode}
+                className="p-2 active:scale-90 transition-transform"
+                title="おまかせラジオ"
+              >
+                <Radio size={20} color={isRadioMode ? accent : subText} />
+              </button>
+              <button
+                onClick={async () => {
+                  if (!currentTrack) return;
+                  const url = `https://www.youtube.com/watch?v=${currentTrack.id}`;
+                  const text = `${currentTrack.title} - ${currentTrack.artist}`;
+                  if (navigator.share) {
+                    try { await navigator.share({ title: text, url }); } catch {}
+                  } else {
+                    await navigator.clipboard.writeText(`${text}\n${url}`);
+                  }
+                }}
+                className="p-2 active:scale-90 transition-transform"
+              >
+                <Share2 size={20} color={subText} />
+              </button>
+              <div className="flex items-center gap-2 flex-1 mx-4">
                 <Volume2 size={16} color={subText} />
                 <input
                   type="range"

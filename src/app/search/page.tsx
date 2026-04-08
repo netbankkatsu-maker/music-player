@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { Search, X, Clock, Loader2, TrendingUp, Sparkles } from 'lucide-react';
+import { Search, X, Clock, Loader2, TrendingUp, Sparkles, Wand2, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { searchYouTube } from '@/lib/youtube';
+import { analyzeQuery, SCENE_PRESETS } from '@/lib/aiSearch';
 import { TrackCard } from '@/components/TrackCard';
 import { usePlaylistStore } from '@/stores/playlistStore';
+import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { SearchResult, Track } from '@/types';
 import { PlaylistSelectModal } from '@/components/PlaylistSelectModal';
@@ -15,9 +17,11 @@ export default function SearchPage() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [aiMood, setAiMood] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { searchHistory, addToSearchHistory, clearSearchHistory } = usePlaylistStore();
+  const { playQueue } = usePlayerStore();
   const theme = useSettingsStore((s) => s.theme);
   const isDark = theme === 'dark';
 
@@ -29,15 +33,56 @@ export default function SearchPage() {
     const q = searchQuery || query;
     if (!q.trim()) return;
     setIsLoading(true);
+    setAiMood(null);
     addToSearchHistory(q.trim());
-    try {
-      const res = await searchYouTube(q.trim());
-      setResults(res);
-    } catch (err) {
-      console.error('Search failed:', err);
+
+    // Check if this is an AI/mood search
+    const aiResult = analyzeQuery(q.trim());
+    if (aiResult.isAISearch) {
+      setAiMood(aiResult.mood);
+      try {
+        // Search with multiple queries and merge results
+        const allResults: SearchResult[] = [];
+        const seenIds = new Set<string>();
+        for (const aiQuery of aiResult.queries) {
+          const res = await searchYouTube(aiQuery, 15);
+          for (const r of res) {
+            if (!seenIds.has(r.id)) {
+              seenIds.add(r.id);
+              allResults.push(r);
+            }
+          }
+        }
+        setResults(allResults);
+      } catch (err) {
+        console.error('AI search failed:', err);
+      }
+    } else {
+      try {
+        const res = await searchYouTube(q.trim());
+        setResults(res);
+      } catch (err) {
+        console.error('Search failed:', err);
+      }
     }
     setIsLoading(false);
   }, [query, addToSearchHistory]);
+
+  const handleScenePlay = useCallback(async (sceneQuery: string, label: string) => {
+    setIsLoading(true);
+    setAiMood(label);
+    setQuery(label);
+    try {
+      const res = await searchYouTube(sceneQuery, 20);
+      if (res.length > 0) {
+        setResults(res);
+        playQueue(res);
+      }
+    } catch (err) {
+      console.error('Scene search failed:', err);
+    }
+    setIsLoading(false);
+  }, [playQueue]);
 
   const filteredHistory = query
     ? searchHistory.filter((h) => h.toLowerCase().includes(query.toLowerCase()))
@@ -69,12 +114,12 @@ export default function SearchPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="曲名、アーティストを検索"
+            placeholder="曲名、気分、シーンで検索"
             className="flex-1 bg-transparent outline-none text-sm"
             style={{ color: textColor }}
           />
           {query && (
-            <button onClick={() => { setQuery(''); setResults([]); }}>
+            <button onClick={() => { setQuery(''); setResults([]); setAiMood(null); }}>
               <X size={18} color={subText} />
             </button>
           )}
@@ -85,15 +130,38 @@ export default function SearchPage() {
       {isLoading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 size={24} color={accent} className="animate-spin" />
+          {aiMood && (
+            <p className="text-xs ml-2" style={{ color: subText }}>
+              「{aiMood}」に合う曲を探しています...
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* AI mood indicator */}
+      {!isLoading && aiMood && results.length > 0 && (
+        <div className="px-4 mb-2">
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+            style={{
+              background: isDark ? 'rgba(0,212,170,0.1)' : 'rgba(5,150,105,0.1)',
+              color: accent,
+            }}
+          >
+            <Wand2 size={14} />
+            「{aiMood}」に合う曲を{results.length}件見つけました
+          </div>
         </div>
       )}
 
       {/* Results */}
       {!isLoading && results.length > 0 && (
         <div className="px-4">
-          <p className="text-xs mb-2" style={{ color: subText }}>
-            {results.length}件の結果
-          </p>
+          {!aiMood && (
+            <p className="text-xs mb-2" style={{ color: subText }}>
+              {results.length}件の結果
+            </p>
+          )}
           {tracks.map((track) => (
             <TrackCard
               key={track.id}
@@ -128,6 +196,32 @@ export default function SearchPage() {
               <span className="text-sm" style={{ color: textColor }}>{item}</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Scene-based playlists */}
+      {!isLoading && results.length === 0 && (
+        <div className="px-4 mt-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Wand2 size={16} color={accent} />
+            <p className="text-sm font-medium" style={{ color: textColor }}>シーンで探す</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {SCENE_PRESETS.map(({ label, icon, query: q }) => (
+              <button
+                key={label}
+                onClick={() => handleScenePlay(q, label)}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-left active:scale-[0.98] transition-transform"
+                style={{
+                  background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                }}
+              >
+                <span className="text-lg">{icon}</span>
+                <span className="text-xs font-medium flex-1" style={{ color: textColor }}>{label}</span>
+                <Play size={12} color={subText} />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

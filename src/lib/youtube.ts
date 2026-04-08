@@ -87,3 +87,58 @@ export async function searchYouTube(query: string, optionsOrMax?: number | Searc
       !/#shorts/i.test(track.title)
     );
 }
+
+export async function getRelatedVideos(videoId: string, maxResults = 15): Promise<SearchResult[]> {
+  if (!API_KEY) return [];
+
+  // Use search with relatedToVideoId
+  const searchParams = new URLSearchParams({
+    part: 'snippet',
+    relatedToVideoId: videoId,
+    type: 'video',
+    videoCategoryId: '10',
+    maxResults: maxResults.toString(),
+    key: API_KEY,
+  });
+
+  const searchRes = await fetch(`${BASE_URL}/search?${searchParams}`);
+  if (!searchRes.ok) return [];
+  const searchData = await searchRes.json();
+
+  const videoIds = searchData.items
+    ?.map((item: { id?: { videoId?: string } }) => item.id?.videoId)
+    .filter(Boolean)
+    .join(',');
+
+  if (!videoIds) return [];
+
+  const detailParams = new URLSearchParams({
+    part: 'contentDetails,snippet',
+    id: videoIds,
+    key: API_KEY,
+  });
+
+  const detailRes = await fetch(`${BASE_URL}/videos?${detailParams}`);
+  if (!detailRes.ok) return [];
+  const detailData = await detailRes.json();
+
+  return (detailData.items || [])
+    .map((item: {
+      id: string;
+      snippet: { title: string; channelTitle: string; thumbnails: { high?: { url: string }; medium?: { url: string }; default?: { url: string } } };
+      contentDetails: { duration: string };
+    }) => ({
+      id: item.id,
+      title: item.snippet.title,
+      artist: item.snippet.channelTitle,
+      thumbnail:
+        item.snippet.thumbnails.high?.url ||
+        item.snippet.thumbnails.medium?.url ||
+        item.snippet.thumbnails.default?.url ||
+        '',
+      duration: parseDuration(item.contentDetails.duration),
+    }))
+    .filter((track: { duration: number; title: string }) =>
+      track.duration >= 60 && !/#shorts/i.test(track.title)
+    );
+}

@@ -15,6 +15,7 @@ interface PlayerStore {
   repeatMode: RepeatMode;
   isShuffled: boolean;
   isFullPlayerOpen: boolean;
+  isRadioMode: boolean;
 
   setTrack: (track: Track) => void;
   playTrack: (track: Track, queue?: Track[]) => void;
@@ -33,6 +34,7 @@ interface PlayerStore {
   reorderQueue: (from: number, to: number) => void;
   clearQueue: () => void;
   playQueue: (tracks: Track[], startIndex?: number) => void;
+  toggleRadioMode: () => void;
 }
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -55,6 +57,7 @@ export const usePlayerStore = create<PlayerStore>()(persist((set, get) => ({
   repeatMode: 'off',
   isShuffled: false,
   isFullPlayerOpen: false,
+  isRadioMode: false,
 
   setTrack: (track) => set({ currentTrack: track }),
 
@@ -171,6 +174,8 @@ export const usePlayerStore = create<PlayerStore>()(persist((set, get) => ({
   }),
 
   clearQueue: () => set({ queue: [], originalQueue: [] }),
+
+  toggleRadioMode: () => set((state) => ({ isRadioMode: !state.isRadioMode })),
 
   playQueue: (tracks, startIndex = 0) => {
     const track = tracks[startIndex];

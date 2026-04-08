@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
+import { useStatsStore } from '@/stores/statsStore';
+import { getRelatedVideos } from '@/lib/youtube';
 
 declare global {
   interface Window {
@@ -72,6 +74,8 @@ export function useYouTubePlayer() {
   const quality = useSettingsStore((s) => s.quality);
   const addToRecentTracks = usePlaylistStore((s) => s.addToRecentTracks);
 
+  const crossfadeTriggeredRef = useRef(false);
+
   const startTimeUpdate = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(() => {
@@ -79,6 +83,30 @@ export function useYouTubePlayer() {
         const time = playerRef.current.getCurrentTime();
         if (time !== undefined) {
           usePlayerStore.getState().setCurrentTime(time);
+
+          // Crossfade: fade out near end of track
+          const { duration } = usePlayerStore.getState();
+          const crossfadeDuration = useSettingsStore.getState().crossfadeDuration;
+          if (crossfadeDuration > 0 && duration > 0) {
+            const remaining = duration - time;
+            if (remaining <= crossfadeDuration && remaining > 0) {
+              // Gradually reduce volume
+              const fadePercent = remaining / crossfadeDuration;
+              const baseVolume = usePlayerStore.getState().volume;
+              playerRef.current.setVolume(Math.round(baseVolume * fadePercent));
+
+              // Trigger next track early (once)
+              if (remaining <= 0.5 && !crossfadeTriggeredRef.current) {
+                crossfadeTriggeredRef.current = true;
+                const ps = usePlayerStore.getState();
+                if (ps.currentTrack && ps.currentTime > 10) {
+                  useStatsStore.getState().recordPlay(ps.currentTrack, ps.currentTime);
+                }
+                usePlayerStore.getState().nextTrack();
+              }
+            }
+          }
+
           // Update Media Session position state for lock screen seek bar
           if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
             const dur = usePlayerStore.getState().duration;
@@ -94,7 +122,7 @@ export function useYouTubePlayer() {
           }
         }
       }
-    }, 500);
+    }, 300); // Slightly faster interval for smoother crossfade
   }, []);
 
   const stopTimeUpdate = useCallback(() => {
@@ -151,6 +179,11 @@ export function useYouTubePlayer() {
         onStateChange: (event) => {
           if (event.data === window.YT.PlayerState.ENDED) {
             stopTimeUpdate();
+            // Record stats
+            const ps = usePlayerStore.getState();
+            if (ps.currentTrack && ps.currentTime > 10) {
+              useStatsStore.getState().recordPlay(ps.currentTrack, ps.currentTime);
+            }
             nextTrack();
           } else if (event.data === window.YT.PlayerState.PLAYING) {
             const dur = event.target.getDuration();
@@ -206,6 +239,12 @@ export function useYouTubePlayer() {
 
     addToRecentTracks(currentTrack);
 
+    // Reset crossfade state and restore volume
+    crossfadeTriggeredRef.current = false;
+    if (playerRef.current) {
+      playerRef.current.setVolume(usePlayerStore.getState().volume);
+    }
+
     // Update Media Session metadata for lock screen / notification controls
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -227,6 +266,35 @@ export function useYouTubePlayer() {
         initPlayer();
       }
     }
+  }, [currentTrack?.id]);
+
+  // Radio mode: auto-fetch related songs when queue is low
+  const radioFetchingRef = useRef(false);
+  useEffect(() => {
+    const state = usePlayerStore.getState();
+    if (!state.isRadioMode || !state.currentTrack || radioFetchingRef.current) return;
+    if (state.queue.length > 3) return; // Still have enough in queue
+
+    radioFetchingRef.current = true;
+    getRelatedVideos(state.currentTrack.id, 10)
+      .then((related) => {
+        const currentState = usePlayerStore.getState();
+        // Filter out already played/queued tracks
+        const existingIds = new Set([
+          currentState.currentTrack?.id,
+          ...currentState.queue.map((t) => t.id),
+        ]);
+        const newTracks = related.filter((t) => !existingIds.has(t.id));
+        if (newTracks.length > 0) {
+          usePlayerStore.setState((s) => ({
+            queue: [...s.queue, ...newTracks],
+            originalQueue: [...s.originalQueue, ...newTracks],
+          }));
+        }
+      })
+      .finally(() => {
+        radioFetchingRef.current = false;
+      });
   }, [currentTrack?.id]);
 
   // Register Media Session action handlers for background/lock screen controls

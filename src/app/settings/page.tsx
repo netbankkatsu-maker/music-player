@@ -1,11 +1,12 @@
 'use client';
 
-import { Moon, Sun, Volume2, Trash2, RotateCcw, Info } from 'lucide-react';
+import { Moon, Sun, Volume2, Trash2, RotateCcw, Info, BarChart3, Disc3, SlidersHorizontal } from 'lucide-react';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { usePlaylistStore } from '@/stores/playlistStore';
+import { StatsView } from '@/components/StatsView';
 
 export default function SettingsPage() {
-  const { theme, toggleTheme, quality, setQuality, resetSettings } = useSettingsStore();
+  const { theme, toggleTheme, quality, setQuality, crossfadeDuration, setCrossfadeDuration, equalizerPreset, setEqualizerPreset, resetSettings } = useSettingsStore();
   const { clearRecentTracks, clearAllData } = usePlaylistStore();
   const isDark = theme === 'dark';
 
@@ -74,6 +75,78 @@ export default function SettingsPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Crossfade */}
+        <div className="rounded-2xl p-4" style={{ background: cardBg }}>
+          <div className="flex items-center gap-3 mb-3">
+            <Disc3 size={20} color={accent} />
+            <div className="flex-1">
+              <p className="text-sm font-medium" style={{ color: textColor }}>クロスフェード</p>
+              <p className="text-xs" style={{ color: subText }}>
+                {crossfadeDuration === 0 ? 'オフ' : `${crossfadeDuration}秒`}
+              </p>
+            </div>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="10"
+            value={crossfadeDuration}
+            onChange={(e) => setCrossfadeDuration(parseInt(e.target.value))}
+            className="w-full h-1 rounded-full appearance-none cursor-pointer"
+            style={{
+              background: `linear-gradient(to right, ${accent} ${crossfadeDuration * 10}%, ${
+                isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'
+              } ${crossfadeDuration * 10}%)`,
+            }}
+          />
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px]" style={{ color: subText }}>オフ</span>
+            <span className="text-[10px]" style={{ color: subText }}>10秒</span>
+          </div>
+        </div>
+
+        {/* Equalizer */}
+        <div className="rounded-2xl p-4" style={{ background: cardBg }}>
+          <div className="flex items-center gap-3 mb-3">
+            <SlidersHorizontal size={20} color={accent} />
+            <p className="text-sm font-medium" style={{ color: textColor }}>イコライザー</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: 'flat', label: 'フラット' },
+              { value: 'bass', label: 'Bass Boost' },
+              { value: 'vocal', label: 'ボーカル' },
+              { value: 'pop', label: 'ポップ' },
+              { value: 'rock', label: 'ロック' },
+              { value: 'jazz', label: 'ジャズ' },
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setEqualizerPreset(value)}
+                className="py-2 rounded-xl text-xs font-medium transition-all"
+                style={{
+                  background: equalizerPreset === value ? accent : (isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'),
+                  color: equalizerPreset === value ? '#0D0D0D' : subText,
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] mt-2" style={{ color: subText }}>
+            ※ YouTube再生ではイコライザーの効果は限定的です
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="rounded-2xl p-4" style={{ background: cardBg }}>
+          <div className="flex items-center gap-3 mb-3">
+            <BarChart3 size={20} color={accent} />
+            <p className="text-sm font-medium" style={{ color: textColor }}>リスニング統計</p>
+          </div>
+          <StatsView />
         </div>
 
         {/* Clear history */}
