@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Play, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Play, ChevronDown, ChevronUp, Loader2, Mic, Video, Radio, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AGE_GROUPS, GENRES, buildTrendQuery } from '@/lib/trending';
+import { AGE_GROUPS, GENRES, EXTRA_FILTERS, buildTrendQuery } from '@/lib/trending';
 import { searchYouTube } from '@/lib/youtube';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useSettingsStore } from '@/stores/settingsStore';
@@ -11,6 +11,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 export function TrendPlayer() {
   const [selectedAge, setSelectedAge] = useState('all');
   const [selectedGenre, setSelectedGenre] = useState<string | undefined>();
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [showGenres, setShowGenres] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { playQueue } = usePlayerStore();
@@ -21,11 +22,30 @@ export function TrendPlayer() {
   const subText = isDark ? '#9CA3AF' : '#6B7280';
   const surface = isDark ? '#1A1A2E' : '#FFFFFF';
 
+  const toggleFilter = useCallback((value: string) => {
+    setSelectedFilters((prev) =>
+      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value]
+    );
+  }, []);
+
+  const filterIcon = (icon: string, size: number, color: string) => {
+    switch (icon) {
+      case 'mic': return <Mic size={size} color={color} />;
+      case 'video': return <Video size={size} color={color} />;
+      case 'radio': return <Radio size={size} color={color} />;
+      case 'sparkles': return <Sparkles size={size} color={color} />;
+      default: return null;
+    }
+  };
+
   const handlePlay = useCallback(async () => {
     setIsLoading(true);
     try {
-      const query = buildTrendQuery(selectedAge, selectedGenre);
-      const results = await searchYouTube(query, 20);
+      const result = buildTrendQuery({ ageGroup: selectedAge, genre: selectedGenre, filters: selectedFilters });
+      const results = await searchYouTube(result.query, {
+        maxResults: 20,
+        publishedAfter: result.publishedAfter,
+      });
       if (results.length > 0) {
         playQueue(results);
       }
@@ -33,7 +53,7 @@ export function TrendPlayer() {
       console.error('Trend search failed:', err);
     }
     setIsLoading(false);
-  }, [selectedAge, selectedGenre, playQueue]);
+  }, [selectedAge, selectedGenre, selectedFilters, playQueue]);
 
   return (
     <div className="px-4 mb-6">
@@ -116,6 +136,30 @@ export function TrendPlayer() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Extra filters */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            {EXTRA_FILTERS.map(({ label, value, icon }) => {
+              const active = selectedFilters.includes(value);
+              return (
+                <button
+                  key={value}
+                  onClick={() => toggleFilter(value)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95"
+                  style={{
+                    background: active
+                      ? (isDark ? 'rgba(0,212,170,0.2)' : 'rgba(5,150,105,0.15)')
+                      : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+                    color: active ? accent : subText,
+                    border: active ? `1px solid ${accent}` : '1px solid transparent',
+                  }}
+                >
+                  {filterIcon(icon, 12, active ? accent : subText)}
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
           {/* Play button */}
           <button

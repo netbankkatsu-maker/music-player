@@ -19,6 +19,13 @@ export const GENRES = [
   { label: 'ロック', value: 'rock' },
 ] as const;
 
+export const EXTRA_FILTERS = [
+  { label: '本人のみ', value: 'official', icon: 'mic' },
+  { label: 'MVのみ', value: 'mv', icon: 'video' },
+  { label: 'ライブ', value: 'live', icon: 'radio' },
+  { label: '新曲', value: 'recent', icon: 'sparkles' },
+] as const;
+
 const AGE_KEYWORDS: Record<string, string> = {
   all: '人気 ヒット 音楽',
   '10s': '2024 2025 TikTok バズ 最新',
@@ -40,8 +47,45 @@ const GENRE_KEYWORDS: Record<string, string> = {
   rock: 'ロック バンド',
 };
 
-export function buildTrendQuery(ageGroup: string, genre?: string): string {
+export interface TrendQueryOptions {
+  ageGroup: string;
+  genre?: string;
+  filters: string[];
+}
+
+export interface TrendQueryResult {
+  query: string;
+  publishedAfter?: string; // ISO date for YouTube API
+}
+
+export function buildTrendQuery(options: TrendQueryOptions): TrendQueryResult {
+  const { ageGroup, genre, filters } = options;
   const ageKeyword = AGE_KEYWORDS[ageGroup] || AGE_KEYWORDS.all;
   const genreKeyword = genre ? GENRE_KEYWORDS[genre] || '' : '';
-  return `${genreKeyword} ${ageKeyword} MV`.trim();
+
+  const parts: string[] = [genreKeyword, ageKeyword];
+
+  if (filters.includes('official')) {
+    parts.push('Official 公式 -cover -カバー -歌ってみた -弾いてみた -踊ってみた');
+  }
+
+  if (filters.includes('mv')) {
+    parts.push('MV "Music Video"');
+  } else if (filters.includes('live')) {
+    parts.push('LIVE ライブ 生演奏');
+  } else {
+    parts.push('MV');
+  }
+
+  let publishedAfter: string | undefined;
+  if (filters.includes('recent')) {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    publishedAfter = oneYearAgo.toISOString();
+  }
+
+  return {
+    query: parts.filter(Boolean).join(' ').trim(),
+    publishedAfter,
+  };
 }

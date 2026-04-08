@@ -12,20 +12,33 @@ function parseDuration(iso8601: string): number {
   return hours * 3600 + minutes * 60 + seconds;
 }
 
-export async function searchYouTube(query: string, maxResults = 20): Promise<SearchResult[]> {
+export interface SearchOptions {
+  maxResults?: number;
+  publishedAfter?: string;
+}
+
+export async function searchYouTube(query: string, optionsOrMax?: number | SearchOptions): Promise<SearchResult[]> {
   if (!API_KEY) {
     console.warn('YouTube API key not configured');
     return [];
   }
+
+  const options: SearchOptions = typeof optionsOrMax === 'number'
+    ? { maxResults: optionsOrMax }
+    : optionsOrMax || {};
 
   const searchParams = new URLSearchParams({
     part: 'snippet',
     q: query,
     type: 'video',
     videoCategoryId: '10',
-    maxResults: maxResults.toString(),
+    maxResults: (options.maxResults || 20).toString(),
     key: API_KEY,
   });
+
+  if (options.publishedAfter) {
+    searchParams.set('publishedAfter', options.publishedAfter);
+  }
 
   const searchRes = await fetch(`${BASE_URL}/search?${searchParams}`);
   if (!searchRes.ok) {
