@@ -73,42 +73,61 @@ async function trySearch(query: string): Promise<LyricsResult | null> {
   return null;
 }
 
+function removeArtistFromTitle(title: string, artist: string): string {
+  if (!artist) return title;
+  // Remove artist name from the beginning or end of the title
+  const escaped = artist.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return title
+    .replace(new RegExp(`^${escaped}\\s*[-–—]?\\s*`, 'i'), '')
+    .replace(new RegExp(`\\s*[-–—]?\\s*${escaped}$`, 'i'), '')
+    .trim();
+}
+
 export async function fetchLyrics(title: string, artist: string): Promise<LyricsResult> {
   const cleanedTitle = cleanTitle(title);
   const cleanedArtist = cleanArtist(artist);
+  // Remove artist name from title if it's embedded (e.g. "西野カナ トリセツ" → "トリセツ")
+  const titleWithoutArtist = removeArtistFromTitle(cleanedTitle, cleanedArtist);
 
-  // Try exact match first
-  try {
-    const params = new URLSearchParams({
-      artist_name: cleanedArtist,
-      track_name: cleanedTitle,
-    });
-    const res = await fetch(`https://lrclib.net/api/get?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.plainLyrics || data.syncedLyrics) {
-        return {
-          plain: data.plainLyrics || null,
-          synced: data.syncedLyrics ? parseLRC(data.syncedLyrics) : null,
-        };
+  // Try exact match with artist removed from title
+  for (const trackName of [titleWithoutArtist, cleanedTitle]) {
+    try {
+      const params = new URLSearchParams({
+        artist_name: cleanedArtist,
+        track_name: trackName,
+      });
+      const res = await fetch(`https://lrclib.net/api/get?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.plainLyrics || data.syncedLyrics) {
+          return {
+            plain: data.plainLyrics || null,
+            synced: data.syncedLyrics ? parseLRC(data.syncedLyrics) : null,
+          };
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
-  // Search with artist + title
-  const result1 = await trySearch(`${cleanedArtist} ${cleanedTitle}`);
+  // Search with artist + cleaned title
+  const result1 = await trySearch(`${cleanedArtist} ${titleWithoutArtist}`);
   if (result1) return result1;
 
-  // Search with just title (for cases where artist name is different)
-  const result2 = await trySearch(cleanedTitle);
-  if (result2) return result2;
+  // Search with just the title without artist
+  if (titleWithoutArtist !== cleanedTitle) {
+    const result2 = await trySearch(titleWithoutArtist);
+    if (result2) return result2;
+  }
 
-  // Try extracting song name from title that contains artist
-  // e.g. "YOASOBI アイドル" -> search "アイドル YOASOBI"
-  const parts = cleanedTitle.split(/\s+/);
+  // Search with full cleaned title
+  const result3 = await trySearch(cleanedTitle);
+  if (result3) return result3;
+
+  // Try splitting and reversing word order
+  const parts = titleWithoutArtist.split(/\s+/);
   if (parts.length >= 2) {
-    const result3 = await trySearch(parts.slice(1).join(' ') + ' ' + parts[0]);
-    if (result3) return result3;
+    const result4 = await trySearch(parts.slice(1).join(' ') + ' ' + parts[0]);
+    if (result4) return result4;
   }
 
   return { plain: null, synced: null };
