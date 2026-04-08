@@ -130,5 +130,20 @@ export async function fetchLyrics(title: string, artist: string): Promise<Lyrics
     if (result4) return result4;
   }
 
+  // Fallback: scrape from Japanese lyrics sites via API route
+  try {
+    const params = new URLSearchParams({
+      title: titleWithoutArtist || cleanedTitle,
+      artist: cleanedArtist,
+    });
+    const res = await fetch(`/api/lyrics?${params}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.lyrics) {
+        return { plain: data.lyrics, synced: null };
+      }
+    }
+  } catch {}
+
   return { plain: null, synced: null };
 }

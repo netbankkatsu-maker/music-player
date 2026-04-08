@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { Search, X, Clock, Loader2 } from 'lucide-react';
+import { Search, X, Clock, Loader2, TrendingUp, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { searchYouTube } from '@/lib/youtube';
 import { TrackCard } from '@/components/TrackCard';
@@ -131,11 +131,34 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Empty state */}
-      {!isLoading && results.length === 0 && filteredHistory.length === 0 && !query && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Search size={48} color={subText} className="opacity-30 mb-4" />
-          <p className="text-sm" style={{ color: subText }}>曲を検索してみましょう</p>
+      {/* Trending suggestions */}
+      {!isLoading && results.length === 0 && (
+        <div className="px-4 mt-2">
+          <div className="flex items-center gap-2 mb-3">
+            <TrendingUp size={16} color={accent} />
+            <p className="text-sm font-medium" style={{ color: textColor }}>トレンド</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[
+              'YOASOBI', 'Mrs. GREEN APPLE', 'Ado', '藤井風',
+              'Official髭男dism', 'King Gnu', 'aespa', 'NewJeans',
+              '米津玄師', 'back number', 'Creepy Nuts', 'tuki.',
+              'BE:FIRST', 'Aimer', 'BUMP OF CHICKEN',
+            ].map((keyword) => (
+              <button
+                key={keyword}
+                onClick={() => { setQuery(keyword); handleSearch(keyword); }}
+                className="px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95 flex items-center gap-1"
+                style={{
+                  background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                  color: subText,
+                }}
+              >
+                <Sparkles size={10} />
+                {keyword}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
