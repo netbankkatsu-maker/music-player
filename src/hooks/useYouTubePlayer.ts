@@ -79,6 +79,19 @@ export function useYouTubePlayer() {
         const time = playerRef.current.getCurrentTime();
         if (time !== undefined) {
           usePlayerStore.getState().setCurrentTime(time);
+          // Update Media Session position state for lock screen seek bar
+          if ('mediaSession' in navigator && navigator.mediaSession.setPositionState) {
+            const dur = usePlayerStore.getState().duration;
+            if (dur > 0) {
+              try {
+                navigator.mediaSession.setPositionState({
+                  duration: dur,
+                  playbackRate: 1,
+                  position: Math.min(time, dur),
+                });
+              } catch {}
+            }
+          }
         }
       }
     }, 500);
@@ -193,6 +206,19 @@ export function useYouTubePlayer() {
 
     addToRecentTracks(currentTrack);
 
+    // Update Media Session metadata for lock screen / notification controls
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        artwork: currentTrack.thumbnail
+          ? [
+              { src: currentTrack.thumbnail, sizes: '480x360', type: 'image/jpeg' },
+            ]
+          : [],
+      });
+    }
+
     if (playerRef.current && typeof playerRef.current.loadVideoById === 'function') {
       playerRef.current.loadVideoById(currentTrack.id);
     } else {
@@ -202,6 +228,47 @@ export function useYouTubePlayer() {
       }
     }
   }, [currentTrack?.id]);
+
+  // Register Media Session action handlers for background/lock screen controls
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+
+    const { togglePlay, nextTrack: next, prevTrack: prev } = usePlayerStore.getState();
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      usePlayerStore.getState().setIsPlaying(true);
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      usePlayerStore.getState().setIsPlaying(false);
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      usePlayerStore.getState().nextTrack();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      usePlayerStore.getState().prevTrack();
+    });
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime != null && playerRef.current) {
+        playerRef.current.seekTo(details.seekTime, true);
+        usePlayerStore.getState().setCurrentTime(details.seekTime);
+      }
+    });
+
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+      navigator.mediaSession.setActionHandler('nexttrack', null);
+      navigator.mediaSession.setActionHandler('previoustrack', null);
+      navigator.mediaSession.setActionHandler('seekto', null);
+    };
+  }, []);
+
+  // Update Media Session playback state
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [isPlaying]);
 
   // Handle play/pause
   useEffect(() => {
