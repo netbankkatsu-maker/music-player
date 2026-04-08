@@ -1,6 +1,6 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import Link from 'next/link';
 import { TrendPlayer } from '@/components/TrendPlayer';
 import { usePlaylistStore } from '@/stores/playlistStore';
@@ -9,6 +9,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 
 export default function HomePage() {
   const recentTracks = usePlaylistStore((s) => s.recentTracks);
+  const removeFromRecentTracks = usePlaylistStore((s) => s.removeFromRecentTracks);
   const playlists = usePlaylistStore((s) => s.playlists);
   const { playTrack } = usePlayerStore();
   const theme = useSettingsStore((s) => s.theme);
@@ -61,8 +62,21 @@ export default function HomePage() {
                 className="flex-shrink-0 w-[140px] cursor-pointer active:scale-95 transition-transform"
                 onClick={() => playTrack(track, recentTracks)}
               >
-                <div className="w-[140px] h-[140px] rounded-2xl overflow-hidden mb-2 shadow-lg">
+                <div className="relative w-[140px] h-[140px] rounded-2xl overflow-hidden mb-2 shadow-lg">
                   <img src={track.thumbnail} alt="" className="w-full h-full object-cover" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeFromRecentTracks(track.id);
+                    }}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+                    style={{
+                      background: 'rgba(0,0,0,0.6)',
+                      backdropFilter: 'blur(4px)',
+                    }}
+                  >
+                    <X size={14} color="#FFFFFF" />
+                  </button>
                 </div>
                 <p className="text-xs font-medium truncate" style={{ color: textColor }}>
                   {track.title}

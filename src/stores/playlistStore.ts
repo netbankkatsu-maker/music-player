@@ -18,6 +18,7 @@ interface PlaylistStore {
   toggleFavorite: (track: Track) => void;
   isFavorite: (trackId: string) => boolean;
   addToRecentTracks: (track: Track) => void;
+  removeFromRecentTracks: (trackId: string) => void;
   addToSearchHistory: (query: string) => void;
   clearSearchHistory: () => void;
   clearRecentTracks: () => void;
@@ -157,6 +158,17 @@ export const usePlaylistStore = create<PlaylistStore>()(
           });
           return { recentTracks: recent, playlists };
         });
+      },
+
+      removeFromRecentTracks: (trackId) => {
+        set((state) => ({
+          recentTracks: state.recentTracks.filter((t) => t.id !== trackId),
+          playlists: state.playlists.map((p) =>
+            p.id === HISTORY_ID
+              ? { ...p, tracks: p.tracks.filter((t) => t.id !== trackId), updatedAt: new Date().toISOString() }
+              : p
+          ),
+        }));
       },
 
       addToSearchHistory: (query) => {

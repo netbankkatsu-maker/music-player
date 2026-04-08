@@ -64,19 +64,26 @@ export async function searchYouTube(query: string, optionsOrMax?: number | Searc
   if (!detailRes.ok) return [];
   const detailData = await detailRes.json();
 
-  return (detailData.items || []).map((item: {
-    id: string;
-    snippet: { title: string; channelTitle: string; thumbnails: { high?: { url: string }; medium?: { url: string }; default?: { url: string } } };
-    contentDetails: { duration: string };
-  }) => ({
-    id: item.id,
-    title: item.snippet.title,
-    artist: item.snippet.channelTitle,
-    thumbnail:
-      item.snippet.thumbnails.high?.url ||
-      item.snippet.thumbnails.medium?.url ||
-      item.snippet.thumbnails.default?.url ||
-      '',
-    duration: parseDuration(item.contentDetails.duration),
-  }));
+  return (detailData.items || [])
+    .map((item: {
+      id: string;
+      snippet: { title: string; channelTitle: string; thumbnails: { high?: { url: string }; medium?: { url: string }; default?: { url: string } } };
+      contentDetails: { duration: string };
+    }) => ({
+      id: item.id,
+      title: item.snippet.title,
+      artist: item.snippet.channelTitle,
+      thumbnail:
+        item.snippet.thumbnails.high?.url ||
+        item.snippet.thumbnails.medium?.url ||
+        item.snippet.thumbnails.default?.url ||
+        '',
+      duration: parseDuration(item.contentDetails.duration),
+    }))
+    .filter((track: { duration: number; title: string }) =>
+      // Exclude Shorts and very short clips (under 60s)
+      track.duration >= 60 &&
+      // Exclude videos with #Shorts in title
+      !/#shorts/i.test(track.title)
+    );
 }
