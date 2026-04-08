@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react';
 import {
   ChevronDown, Play, Pause, SkipBack, SkipForward,
-  Shuffle, Repeat, Repeat1, Heart, ListMusic, Timer, Volume2
+  Shuffle, Repeat, Repeat1, Heart, ListMusic, Timer, Volume2, MicVocal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -12,6 +12,9 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { formatTime } from '@/lib/utils';
 import { QueueView } from './QueueView';
 import { SleepTimerModal } from './SleepTimer';
+import { LyricsView } from './LyricsView';
+
+type PlayerTab = 'artwork' | 'lyrics';
 
 export function FullPlayer() {
   const {
@@ -28,6 +31,7 @@ export function FullPlayer() {
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragTime, setDragTime] = useState(0);
+  const [activeTab, setActiveTab] = useState<PlayerTab>('artwork');
 
   const seekTo = useCallback((clientX: number, element: HTMLDivElement) => {
     const rect = element.getBoundingClientRect();
@@ -50,23 +54,15 @@ export function FullPlayer() {
   const handleSeekEnd = useCallback(() => {
     if (!isDragging) return;
     setIsDragging(false);
-    // Access the hook from the YouTubePlayerHost via global ref
-    const ytPlayer = document.getElementById('yt-player') as HTMLIFrameElement | null;
-    if (ytPlayer) {
-      // Seek through the store - the hook will pick it up
-      usePlayerStore.getState().setCurrentTime(dragTime);
-      // Dispatch a custom event for the player hook to handle
-      window.dispatchEvent(new CustomEvent('yt-seek', { detail: dragTime }));
-    }
+    usePlayerStore.getState().setCurrentTime(dragTime);
+    window.dispatchEvent(new CustomEvent('yt-seek', { detail: dragTime }));
   }, [isDragging, dragTime]);
 
   const displayTime = isDragging ? dragTime : currentTime;
   const progress = duration > 0 ? (displayTime / duration) * 100 : 0;
 
   const accent = isDark ? '#00D4AA' : '#059669';
-  const subAccent = isDark ? '#7C3AED' : '#6D28D9';
   const bg = isDark ? '#0D0D0D' : '#F9FAFB';
-  const surface = isDark ? '#1A1A2E' : '#FFFFFF';
   const textColor = isDark ? '#E5E5E5' : '#111827';
   const subText = isDark ? '#9CA3AF' : '#6B7280';
 
@@ -89,31 +85,76 @@ export function FullPlayer() {
             >
               <ChevronDown size={28} color={textColor} />
             </button>
-            <span className="text-xs font-medium uppercase tracking-widest" style={{ color: subText }}>
-              再生中
-            </span>
+            {/* Tab switcher */}
+            <div className="flex items-center gap-1 rounded-full p-1" style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }}>
+              <button
+                onClick={() => setActiveTab('artwork')}
+                className="px-3 py-1 rounded-full text-[11px] font-medium transition-all"
+                style={{
+                  background: activeTab === 'artwork' ? accent : 'transparent',
+                  color: activeTab === 'artwork' ? '#0D0D0D' : subText,
+                }}
+              >
+                アートワーク
+              </button>
+              <button
+                onClick={() => setActiveTab('lyrics')}
+                className="px-3 py-1 rounded-full text-[11px] font-medium transition-all flex items-center gap-1"
+                style={{
+                  background: activeTab === 'lyrics' ? accent : 'transparent',
+                  color: activeTab === 'lyrics' ? '#0D0D0D' : subText,
+                }}
+              >
+                <MicVocal size={12} />
+                歌詞
+              </button>
+            </div>
             <div className="w-10" />
           </div>
 
-          {/* Album Art */}
-          <div className="flex-1 flex items-center justify-center px-10">
-            <motion.div
-              className={`w-full max-w-[320px] aspect-square rounded-3xl overflow-hidden shadow-2xl ${
-                isPlaying ? 'animate-pulse-glow' : ''
-              }`}
-              animate={isPlaying ? { scale: [1, 1.02, 1] } : { scale: 1 }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <img
-                src={currentTrack.thumbnail}
-                alt={currentTrack.title}
-                className="w-full h-full object-cover"
-              />
-            </motion.div>
+          {/* Content area: Artwork or Lyrics */}
+          <div className="flex-1 overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              {activeTab === 'artwork' ? (
+                <motion.div
+                  key="artwork"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center justify-center px-10 h-full"
+                >
+                  <motion.div
+                    className={`w-full max-w-[320px] aspect-square rounded-3xl overflow-hidden shadow-2xl ${
+                      isPlaying ? 'animate-pulse-glow' : ''
+                    }`}
+                    animate={isPlaying ? { scale: [1, 1.02, 1] } : { scale: 1 }}
+                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                  >
+                    <img
+                      src={currentTrack.thumbnail}
+                      alt={currentTrack.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="lyrics"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full overflow-y-auto px-4"
+                >
+                  <LyricsView />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Track Info */}
-          <div className="px-8 mt-6">
+          {/* Track Info + Controls */}
+          <div className="px-8 mt-4">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0 mr-4">
                 <h2 className="text-lg font-bold truncate" style={{ color: textColor }}>
@@ -136,7 +177,7 @@ export function FullPlayer() {
             </div>
 
             {/* Seek Bar */}
-            <div className="mt-6">
+            <div className="mt-4">
               <div
                 className="relative h-6 flex items-center cursor-pointer"
                 onMouseDown={handleSeekStart}
@@ -172,7 +213,7 @@ export function FullPlayer() {
             </div>
 
             {/* Main Controls */}
-            <div className="flex items-center justify-between mt-4 px-4">
+            <div className="flex items-center justify-between mt-3 px-4">
               <button
                 onClick={toggleShuffle}
                 className="p-2 active:scale-90 transition-transform"
@@ -215,7 +256,7 @@ export function FullPlayer() {
             </div>
 
             {/* Secondary Controls */}
-            <div className="flex items-center justify-between mt-4 mb-8 px-4">
+            <div className="flex items-center justify-between mt-3 mb-6 px-4">
               <button
                 onClick={() => setShowSleepTimer(true)}
                 className="p-2 active:scale-90 transition-transform"
