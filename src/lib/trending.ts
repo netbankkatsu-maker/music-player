@@ -24,6 +24,7 @@ export const EXTRA_FILTERS = [
   { label: 'MVのみ', value: 'mv', icon: 'video' },
   { label: 'ライブ', value: 'live', icon: 'radio' },
   { label: '新曲', value: 'recent', icon: 'sparkles' },
+  { label: 'メドレー除外', value: 'nomedley', icon: 'ban' },
 ] as const;
 
 const AGE_KEYWORDS: Record<string, string> = {
@@ -67,6 +68,10 @@ export function buildTrendQuery(options: TrendQueryOptions): TrendQueryResult {
 
   if (filters.includes('official')) {
     parts.push('Official 公式 -cover -カバー -歌ってみた -弾いてみた -踊ってみた');
+  }
+
+  if (filters.includes('nomedley')) {
+    parts.push('-メドレー -medley -作業用 -詰め合わせ -まとめ -100曲 -50曲 -30曲');
   }
 
   if (filters.includes('mv')) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Play, ChevronDown, ChevronUp, Loader2, Mic, Video, Radio, Sparkles } from 'lucide-react';
+import { Play, ChevronDown, ChevronUp, Loader2, Mic, Video, Radio, Sparkles, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AGE_GROUPS, GENRES, EXTRA_FILTERS, buildTrendQuery } from '@/lib/trending';
 import { searchYouTube } from '@/lib/youtube';
@@ -34,6 +34,7 @@ export function TrendPlayer() {
       case 'video': return <Video size={size} color={color} />;
       case 'radio': return <Radio size={size} color={color} />;
       case 'sparkles': return <Sparkles size={size} color={color} />;
+      case 'ban': return <Ban size={size} color={color} />;
       default: return null;
     }
   };
